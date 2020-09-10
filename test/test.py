@@ -40,14 +40,20 @@ for extension in user_extensions_list:
     if not isfile(join(user_extensions_dir, extension, "prefs.js")):
         user_extensions_list.remove(extension)
 
-print("System extensions with prefs.js", system_extensions_list)
-print("User extensions with prefs.js", user_extensions_list)
+extensions_with_preferences_dict = {
+        "user": user_extensions_list,
+        "system": system_extensions_list
+    }
+
+for val in extensions_with_preferences_dict:
+    print(val)
 
 """
 Part 4 - Launch extensions with prefs
 """
 
-test = subprocess.Popen(["gnome-extensions","prefs",user_extensions_list[-1]])
+#test = subprocess.Popen(["gnome-extensions","prefs",user_extensions_list[-1]])
+
 
 
 
