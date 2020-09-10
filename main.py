@@ -1,7 +1,7 @@
 import gi
-gi.require_version('Gdk', '3.0')
 import subprocess
 import json
+gi.require_version('Gdk', '3.0')
 from gi.repository import Gio
 from os.path import isdir, join, expanduser, isfile
 from ulauncher.api.client.Extension import Extension
@@ -12,7 +12,9 @@ from ulauncher.api.shared.action.RenderResultListAction import RenderResultListA
 from ulauncher.api.shared.action.HideWindowAction import HideWindowAction
 from ulauncher.api.shared.action.ExtensionCustomAction import ExtensionCustomAction
 
-directories = {
+DISPLAY_MAX_RESULTS = 10
+
+DIRECTORIES = {
     "system": "/usr/share/gnome-shell/extensions",
     "user": "{}/.local/share/gnome-shell/extensions".format(expanduser("~"))
 }
@@ -50,9 +52,9 @@ def list_extensions_with_prefs(only_enabled=True):
 
 
     for extension in extensions_list:
-        if isdir(join(directories["user"], extension)):
+        if isdir(join(DIRECTORIES["user"], extension)):
             user_extensions_list.append(extension)
-        elif isdir(join(directories["system"], extension)):
+        elif isdir(join(DIRECTORIES["system"], extension)):
             system_extensions_list.append(extension)
 
     """
@@ -60,10 +62,10 @@ def list_extensions_with_prefs(only_enabled=True):
     """
 
     for extension in system_extensions_list:
-        if not isfile(join(directories["system"], extension, "prefs.js")):
+        if not isfile(join(DIRECTORIES["system"], extension, "prefs.js")):
             system_extensions_list.remove(extension)
     for extension in user_extensions_list:
-        if not isfile(join(directories["user"], extension, "prefs.js")):
+        if not isfile(join(DIRECTORIES["user"], extension, "prefs.js")):
             user_extensions_list.remove(extension)
     
     extensions_with_preferences_dict = {
@@ -78,30 +80,23 @@ class GnomeExtensionItem:
         self.directory_path = directory_path
         self.type = extension_type
         self.name = self.get_name()
-        self.description = self.get_description()
         self.is_last = self.directory_path == previous_selection
 
     def get_name(self):
-        with open(join(directories[self.type],self.directory_path,"metadata.json")) as json_file:
+        with open(join(DIRECTORIES[self.type],self.directory_path,"metadata.json")) as json_file:
             data = json.load(json_file)
         return data["name"]
-    
-    def get_description(self):
-        with open(join(directories[self.type],self.directory_path,"metadata.json")) as json_file:
-            data = json.load(json_file)
-        return data["description"]
     
     def to_extension_item(self):
         return ExtensionResultItem(icon='images/icon.png',
                                              name=self.name,
-                                             description=self.description,
                                              selected_by_default=self.is_last,
                                              on_enter=ExtensionCustomAction(self.directory_path, keep_app_open=False))
     
     def is_matching(self, keyword):
         # Assumes UTF-8 input
         ascii_keyword = keyword
-        return ascii_keyword in self.name.lower() or ascii_keyword in self.description.lower()
+        return ascii_keyword in self.name.lower()
         
             
 
@@ -112,6 +107,7 @@ class GnomeExtensionsPrefs(Extension):
         self.selection = None
         self.previous_selection = None
         self.subscribe(KeywordQueryEvent, KeywordQueryEventListener())
+        self.subscribe(ItemEnterEvent, ItemEnterEventListener())
 
 
 class KeywordQueryEventListener(EventListener):
@@ -126,21 +122,12 @@ class KeywordQueryEventListener(EventListener):
                 [GnomeExtensionItem(extension, "system", extension) for extension in list_extensions_with_prefs()["system"]]
         matching_items = [extension_item.to_extension_item() for extension_item in extension.items if
                           extension_item.is_matching(query)]
-        return RenderResultListAction(matching_items)
+        return RenderResultListAction(matching_items[:DISPLAY_MAX_RESULTS])
 
 class ItemEnterEventListener(EventListener):
     def on_event(self, event, extension):
-        extensions_list = list_extensions_with_prefs()["user"]+list_extensions_with_prefs["system"]
-        for extension in extensions_list:
-            print(extension, event.get_data())
-            if extension == event.get_data():
-                previous_selection = extension.selection
-                extension.previous_selection = previous_selection
-                extension.selection = extension
-                launch_extension_prefs(extension)
-
-        
-
+        extension_raw_name = event.get_data()
+        launch_extension_prefs(extension_raw_name)
 
 if __name__ == '__main__':
     GnomeExtensionsPrefs().run()
