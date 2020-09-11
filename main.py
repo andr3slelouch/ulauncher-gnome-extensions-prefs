@@ -6,7 +6,7 @@ from gi.repository import Gio
 from os.path import isdir, join, expanduser, isfile
 from ulauncher.api.client.Extension import Extension
 from ulauncher.api.client.EventListener import EventListener
-from ulauncher.api.shared.event import KeywordQueryEvent, ItemEnterEvent
+from ulauncher.api.shared.event import KeywordQueryEvent, ItemEnterEvent,PreferencesUpdateEvent, PreferencesEvent
 from ulauncher.api.shared.item.ExtensionResultItem import ExtensionResultItem
 from ulauncher.api.shared.action.RenderResultListAction import RenderResultListAction
 from ulauncher.api.shared.action.HideWindowAction import HideWindowAction
@@ -37,9 +37,9 @@ def list_extensions_with_prefs(only_enabled=True):
     }
     
     gsettings = Gio.Settings.new(gnome_shell_extensions_schema)
-    extensions_list = gsettings.get_value(extensions_keys["enabled"])
+    extensions_list = list(gsettings.get_value(extensions_keys["enabled"]))
     if not (only_enabled):
-        extensions_list.append(gsettings.get_value(extensions_keys["disabled"]))
+        extensions_list += list(gsettings.get_value(extensions_keys["disabled"]))
 
 
     """
@@ -106,8 +106,11 @@ class GnomeExtensionsPrefs(Extension):
         super(GnomeExtensionsPrefs, self).__init__()
         self.selection = None
         self.previous_selection = None
+        self.only_enabled = None
         self.subscribe(KeywordQueryEvent, KeywordQueryEventListener())
         self.subscribe(ItemEnterEvent, ItemEnterEventListener())
+        self.subscribe(PreferencesEvent,PreferencesEventListener())
+        self.subscribe(PreferencesUpdateEvent,PreferencesUpdateEventListener())
 
 
 class KeywordQueryEventListener(EventListener):
@@ -118,8 +121,8 @@ class KeywordQueryEventListener(EventListener):
             # The extension has just been triggered, let's initialize the windows list.
             # (Or we delete all previously typed characters, but we can safely ignore that case)
             query = ''
-            extension.items = [GnomeExtensionItem(extension, "user", extension) for extension in list_extensions_with_prefs()["user"]] + \
-                [GnomeExtensionItem(extension, "system", extension) for extension in list_extensions_with_prefs()["system"]]
+            extension.items = [GnomeExtensionItem(extension, "user", extension) for extension in list_extensions_with_prefs(extension.only_enabled)["user"]] + \
+                [GnomeExtensionItem(extension, "system", extension) for extension in list_extensions_with_prefs(extension.only_enabled)["system"]]
         matching_items = [extension_item.to_extension_item() for extension_item in extension.items if
                           extension_item.is_matching(query)]
         return RenderResultListAction(matching_items[:DISPLAY_MAX_RESULTS])
@@ -128,6 +131,21 @@ class ItemEnterEventListener(EventListener):
     def on_event(self, event, extension):
         extension_raw_name = event.get_data()
         launch_extension_prefs(extension_raw_name)
+
+class PreferencesEventListener(EventListener):
+    def on_event(self,event,extension):
+        #   only_enabled value
+        flag_dict ={"true": True, "false": False}
+        extension.only_enabled = flag_dict[event.preferences['only_enabled']]
+        
+        
+class PreferencesUpdateEventListener(EventListener):
+    def on_event(self,event,extension):
+        #   only_enabled value
+        if event.id == 'only_enabled':
+            flag_dict ={"true": True, "false": False}
+            extension.only_enabled = flag_dict[event.new_value]
+        
 
 if __name__ == '__main__':
     GnomeExtensionsPrefs().run()
