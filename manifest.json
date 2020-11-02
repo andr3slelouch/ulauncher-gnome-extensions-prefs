@@ -1,0 +1,27 @@
+{
+    "required_api_version": "^2.0.0",
+    "name": "Gnome Extensions Preference Launcher",
+    "description": "With this extension you can launch Gnome Extension Preferences from enabled Gnome Extensions",
+    "developer_name": "Luis Andrade",
+    "icon": "images/icon.png",
+    "preferences": [
+      {
+        "id": "gep_kw",
+        "type": "keyword",
+        "name": "Gnome Extensions Preference Launcher Keyword",
+        "description": "Launch Gnome Extension Preferences",
+        "default_value": "gep"
+      },
+      {
+        "id": "only_enabled",
+        "type": "select",
+        "name": "List only enabled extensions",
+        "description": "Select Yes for only enabled extensions and No for all installed extensions",
+        "default_value": "true",
+        "options":[
+          {"value":"true","text":"Yes"},
+          {"value":"false","text":"No"}
+        ]
+      }
+    ]
+  }
